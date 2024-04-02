@@ -1,4 +1,5 @@
 import time
+import secrets
 
 import AES
 
@@ -60,9 +61,8 @@ class KDC:
         ticket = self.crypto_system.encrypt(key, payload)
         return ticket
 
-    #to be implemented
     def generate_session_key(self):
-        session_key = 123
+        session_key=secrets.token_bytes(16)  # Generates a random 128-bit key using secrets function (https://docs.python.org/3/library/secrets.html)
         return session_key
 
     #create TGT, which includes username and their session key encrypted with the KDC's key
