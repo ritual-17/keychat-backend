@@ -1,13 +1,14 @@
-import time
 import secrets
+import json
 
 import AES
 
 class KDC:
     def __init__(self):
         self.user_secrets = {} #users keys
-        self.K = 123 #the KDC's key - TO BE IMPLEMENTED
-        self.crypto_system = AES() #our encryption algorithm
+        self.service_secrets = {} #service keys
+        self.K = secrets.token_bytes(16) #the KDC's key
+        self.crypto_system = AES.AES() #our encryption algorithm
 
     #register the user by adding their secret key to the system
     def register(self, username, secret):
@@ -17,48 +18,39 @@ class KDC:
     def return_TGT(self, username):
         session_key = self.generate_session_key()
         tgt = self.generate_TGT(username, session_key)
-        payload = str(session_key) + "," + str(tgt)
-        response = self.crypto_system.encrypt(self.user_secrets[username],payload)
+
+        payload = {"session_key": session_key, "tgt": tgt}
+        payload_bytes = self.get_payload_bytes(payload)
+
+        response = self.crypto_system.encrypt(payload_bytes, self.user_secrets[username])
         return response
     
-    #for when user is requesting a ticket to talk to another user
-    def return_ticket(self, username, recipient, tgt, authenticator):
-        if recipient not in self.user_secrets:
+    #for when user is requesting a ticket to talk to a service
+    def return_ticket(self, username, recipient, tgt):
+        if recipient not in self.service_secrets:
             return None
         #generate shared key
         shared_key = self.generate_session_key()
-        #decrypt tgt to get session key of user
-        tgt_decrypted = self.crypto_system.decrypt(self.K, tgt).split(",") #should be in format "username,key"
-        user_session_key = tgt_decrypted[1] #session key will be second element
-        #authenticating time stamp
-        timestamp = self.crypto_system.decrypt(user_session_key, authenticator)
-        now = time.time()
-        if abs(now-timestamp) > 300: #must be within 5 minutes
-            return None
-        #generate ticket and create payload
-        ticket = self.generate_ticket(username, shared_key, self.K)
-        payload = recipient + "," + str(shared_key) + "," + ticket
-        payload_encrypted = self.crypto_system.encrypt(user_session_key,payload)
+
+        #decrypt tgt using KDC key to get session key of user
+        tgt_decrypted = self.crypto_system.decrypt(tgt, self.K)
+        tgt_decrypted_json = json.loads(tgt_decrypted)
+        user_session_key = tgt_decrypted_json["session_key"]
+    
+        #generate ticket encrypted with the service's key
+        recipient_key = self.service_secrets[recipient]
+        ticket = self.generate_ticket(username, shared_key, recipient_key)
+
+        #create and return payload
+        payload = {"recipient": recipient, "shared_key": shared_key, "ticket": ticket}
+        payload_bytes = self.get_payload_bytes(payload)
+        payload_encrypted = self.crypto_system.encrypt(payload_bytes, user_session_key)
         return payload_encrypted
-
-    #when a user receives a ticket from another user, it needs the ticket to be encrypted with its session key
-    def verify_ticket(self, tgt, ticket, authenticator):
-        tgt_decrypted = self.crypto_system.decrypt(self.K, tgt).split(",")
-        session_key = tgt_decrypted[1]
-
-        #authenticating time stamp
-        timestamp = self.crypto_system.decrypt(session_key, authenticator)
-        now = time.time()
-        if abs(now-timestamp) > 300: #5 minutes
-            return None
-        
-        ticket_decrypted = self.crypto_system.decrypt(self.K, ticket)
-        new_ticket = self.crypto_system.encrypt(session_key, ticket_decrypted)
-        return new_ticket
     
     def generate_ticket(self, sender, shared_key, key):
-        payload = sender + "," + str(shared_key)
-        ticket = self.crypto_system.encrypt(key, payload)
+        payload = {"sender": sender, "shared_key": shared_key}
+        payload_bytes = self.get_payload_bytes(payload)
+        ticket = self.crypto_system.encrypt(payload_bytes, key)
         return ticket
 
     def generate_session_key(self):
@@ -67,7 +59,13 @@ class KDC:
 
     #create TGT, which includes username and their session key encrypted with the KDC's key
     def generate_TGT(self, username, session_key):
-        payload = username + "," + str(session_key)
-        tgt = self.crypto_system.encrypt(self.K, payload)
+        payload = {"username": username, "session_key": session_key}
+        payload_bytes = self.get_payload_bytes(payload)
+
+        tgt = self.crypto_system.encrypt(payload_bytes, self.K)
         return tgt
+    
+    def get_payload_bytes(self, payload):
+        payload_json = json.dumps(payload)
+        return str.encode(payload_json)
     
