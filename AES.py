@@ -1,9 +1,14 @@
+from Crypto.Cipher import AES as crypto
+from Crypto.Util.Padding import pad, unpad
+
 class AES:
+    
+    def encrypt(self, data, key):
+        cipher = crypto.new(key, crypto.MODE_ECB)
+        encrypted_data = cipher.encrypt(pad(data,crypto.block_size))
+        return encrypted_data
 
-    #to be implemented
-    def encrypt(self, key, data):
-        return data
-
-    #to be implemented
-    def decrypt(self, key, data):
-        return data
+    def decrypt(self, data, key):
+        cipher = crypto.new(key, crypto.MODE_ECB)
+        decrypted_data = unpad(cipher.decrypt(data),crypto.block_size)
+        return decrypted_data
