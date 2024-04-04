@@ -1,5 +1,7 @@
 import eventlet
 import socketio
+import threading
+
 import KDC
 
 sio = socketio.Server()
@@ -28,9 +30,12 @@ def disconnect(sid):
 def get_ticket(sid, username, recipient, tgt):
   return kdc.return_ticket(username, recipient, tgt)
 
-def refresh_keys(sid):
-  for user in kdc.active_users:
-    sio.emit('start_key_update')
+def refresh_keys():
+  while True:
+    threading.Event().wait(300) # refresh every 5 minutes
+    for user in kdc.active_users:
+      sio.emit('start_key_update', to=user)
+      
 
 @sio.event
 def update_key(sid, tgt):
@@ -48,4 +53,5 @@ def get_login(sid, data):
     sio.emit("login_failure")
 
 if __name__ == '__main__':
+  threading.Thread(target=refresh_keys, daemon=True).start()
   eventlet.wsgi.server(eventlet.listen(('',8080)), app)
