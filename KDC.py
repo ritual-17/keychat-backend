@@ -1,6 +1,5 @@
 import secrets
 import json
-import sys
 
 import AES
 
@@ -24,7 +23,7 @@ class KDC:
 
         return response
     
-    def update_keys(self, tgt):
+    def update_key(self, tgt):
         #decrypt tgt using KDC key to get old session key of user
         tgt_decrypted = self.crypto_system.decrypt(tgt, self.K)
         tgt_decrypted_json = json.loads(tgt_decrypted)

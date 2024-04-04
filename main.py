@@ -1,13 +1,12 @@
-from typing import Union
-from fastapi import FastAPI
 import eventlet
 import socketio
 import KDC
 
 sio = socketio.Server()
 app = socketio.WSGIApp(sio)
-# kdc = KDC.KDC(user_secrets, service_secrets)
-clients = []
+user_secrets = {}
+service_secrets = {}
+kdc = KDC.KDC(user_secrets, service_secrets)
 
 usernames = {
   "alice": "password123",
@@ -17,8 +16,8 @@ usernames = {
 
 @sio.event
 def register(sid, username):
-  sio.emit('tgt_get', kdc.register(username))
   kdc.add_user(username, sid)
+  return kdc.register(username)
 
 @sio.event
 def disconnect(sid):
@@ -27,24 +26,15 @@ def disconnect(sid):
 
 @sio.event
 def get_ticket(sid, username, recipient, tgt):
-  sio.emit('ticket_get', kdc.return_ticket(username, recipient, tgt))
+  return kdc.return_ticket(username, recipient, tgt)
 
 def refresh_keys(sid):
   for user in kdc.active_users:
     sio.emit('start_key_update')
 
 @sio.event
-def update_tgt(sid, tgt):
-
-
-@sio.event
-def update(sid, data):
-  print("Received", data, "from", sid)
-  for client in clients:
-    if client != sid:
-      print("Sent to", sid)
-      sio.emit('message', data)
-  return 'OK', 123
+def update_key(sid, tgt):
+  return kdc.update_key(tgt)
 
 @sio.event
 def get_login(sid, data):
