@@ -6,8 +6,14 @@ import KDC
 
 sio = socketio.Server()
 app = socketio.WSGIApp(sio)
-kdc = KDC.KDC(user_secrets, service_secrets)
+# kdc = KDC.KDC(user_secrets, service_secrets)
 clients = []
+
+usernames = {
+  "alice": "password123",
+  "bob" : "password456",
+  "cody": "password789"
+}
 
 @sio.event
 def register(sid, username):
@@ -39,6 +45,17 @@ def update(sid, data):
       print("Sent to", sid)
       sio.emit('message', data)
   return 'OK', 123
+
+@sio.event
+def get_login(sid, data):
+  username, password = data.split(",")
+  if username in usernames.keys():
+    if usernames[username] == password:
+      sio.emit("login_success")
+    else:
+      sio.emit("login_failure")
+  else:
+    sio.emit("login_failure")
 
 if __name__ == '__main__':
   eventlet.wsgi.server(eventlet.listen(('',8080)), app)
