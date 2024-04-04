@@ -1,0 +1,71 @@
+'''
+# Sample document to insert into collections
+sample_user = {
+    "username": "john_doe",
+    "email": "john@example.com",
+    "passwordHash": "hashed_password_here",
+    "profileDetails": {
+        "displayName": "John Doe",
+        "profilePicture": "profile_pic_url_here"
+    },
+    "status": "active"
+}
+
+sample_contact = {
+    "userId": ObjectId("user_id_here"),
+    "contacts": [
+        {
+            "contactUserId": ObjectId("contact_user_id_here"),
+            "name": "Contact Name",
+            "status": "active"
+        }
+    ]
+}
+
+sample_chat = {
+    "participants": [ObjectId("user1_id_here"), ObjectId("user2_id_here")],
+    "subject": "Chat Subject",
+    "createdAt": datetime.utcnow(),
+    "messages": [
+        {
+            "senderId": ObjectId("sender_id_here"),
+            "content": "Message content",
+            "sentAt": datetime.utcnow(),
+            "status": "sent"
+        }
+    ]
+}
+
+sample_file = {
+    "userId": ObjectId("user_id_here"),
+    "chatId": ObjectId("chat_id_here"),
+    "filename": "file_name_here",
+    "size": 1024,  # Size in bytes
+    "contentType": "application/pdf",
+    "uploadDate": datetime.utcnow()
+}
+
+sample_announcement = {
+    "title": "Announcement Title",
+    "content": "Announcement Content",
+    "createdAt": datetime.utcnow(),
+    "createdBy": ObjectId("user_id_here")
+}
+
+sample_notification = {
+    "userId": ObjectId("user_id_here"),
+    "type": "info",
+    "message": "Notification Message",
+    "status": "unread",
+    "createdAt": datetime.utcnow()
+}
+
+# Insert sample documents into collections
+users_collection.insert_one(sample_user)
+contacts_collection.insert_one(sample_contact)
+chats_collection.insert_one(sample_chat)
+files_collection.insert_one(sample_file)
+announcements_collection.insert_one(sample_announcement)
+notifications_collection.insert_one(sample_notification)
+
+'''
