@@ -12,7 +12,7 @@ kdc = KDC.KDC(user_secrets, service_secrets)
 
 def test_return_TGT():
     secret_key = user_secrets["Bob"]
-    tgt = kdc.return_TGT("Bob")
+    tgt = kdc.register("Bob")
     decrypted_tgt = crypto_system.decrypt(tgt, secret_key)
     decrypted_tgt_json = json.loads(decrypted_tgt)
     session_key = eval(decrypted_tgt_json["session_key"])
@@ -20,7 +20,7 @@ def test_return_TGT():
 
 def test_return_ticket():
     #get TGT payload
-    payload = kdc.return_TGT("Bob")
+    payload = kdc.register("Bob")
     decrypted_payload = crypto_system.decrypt(payload, user_secrets["Bob"])
     decrypted_payload_json = json.loads(decrypted_payload)
 

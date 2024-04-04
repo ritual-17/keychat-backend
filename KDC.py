@@ -10,13 +10,10 @@ class KDC:
         self.service_secrets = service_secrets #service keys
         self.K = secrets.token_bytes(16) #the KDC's key
         self.crypto_system = AES.AES() #our encryption algorithm
-
-    #register the user by adding their secret key to the system
-    def register(self, username, secret):
-        self.user_secrets[username] = secret
+        self.active_users = {} #active users and their connections
 
     #return encrypted TGT payload, including session key and TGT encrypted using the user's secret key
-    def return_TGT(self, username):
+    def register(self, username):
         session_key = self.generate_session_key()
         tgt = self.generate_TGT(username, session_key)
 
@@ -26,7 +23,13 @@ class KDC:
         response = self.crypto_system.encrypt(payload_bytes, self.user_secrets[username])
         return response
     
-    #for when user is requesting a ticket to talk to a service
+    def update_keys(self):
+        pass
+
+    def remove_user(self, username):
+        pass
+    
+    #user is requesting a ticket to talk to a service
     def return_ticket(self, username, recipient, tgt):
         if recipient not in self.service_secrets:
             return None
