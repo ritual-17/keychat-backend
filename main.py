@@ -10,28 +10,29 @@ kdc = KDC.KDC(user_secrets, service_secrets)
 clients = []
 
 @sio.event
-def connect(sid, env):
-  clients.append(sid)
-  print('connect ', sid)
+def register(sid, username):
+  sio.emit('tgt_get', kdc.register(username))
+  kdc.add_user(username, sid)
 
 @sio.event
 def disconnect(sid):
-  clients.remove(sid)
+  kdc.remove_user(sid)
   print('disconnect ', sid)
 
 @sio.event
-def connected(sid, data):
-  print(data)
+def get_ticket(sid, username, recipient, tgt):
+  sio.emit('ticket_get', kdc.return_ticket(username, recipient, tgt))
+
+def refresh_keys(sid):
+  for user in kdc.active_users:
+    sio.emit('start_key_update')
 
 @sio.event
-def register(sid, username):
-  pass
+def update_tgt(sid, tgt):
 
-def get_ticket(sid, recipient, tgt):
-  pass
 
 @sio.event
-def send_message(sid, data):
+def update(sid, data):
   print("Received", data, "from", sid)
   for client in clients:
     if client != sid:

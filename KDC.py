@@ -21,13 +21,32 @@ class KDC:
         payload_bytes = self.get_payload_bytes(payload)
 
         response = self.crypto_system.encrypt(payload_bytes, self.user_secrets[username])
+
         return response
     
-    def update_keys(self):
-        pass
+    def update_keys(self, tgt):
+        #decrypt tgt using KDC key to get old session key of user
+        tgt_decrypted = self.crypto_system.decrypt(tgt, self.K)
+        tgt_decrypted_json = json.loads(tgt_decrypted)
+        username = tgt_decrypted_json["username"]
+        session_key = eval(tgt_decrypted_json["session_key"])
 
-    def remove_user(self, username):
-        pass
+        #generate new session key
+        new_session_key = self.generate_session_key()
+        new_tgt = self.generate_TGT(username, new_session_key)
+
+        #create and return payload
+        payload = {"session_key": str(new_session_key), "tgt": str(new_tgt)}
+        payload_bytes = self.get_payload_bytes(payload)
+        response = self.crypto_system.encrypt(payload_bytes, session_key)
+        return response
+
+
+    def add_user(self, username, sid):
+        self.active_users[sid] = username
+
+    def remove_user(self, sid):
+        self.active_users.pop(sid)
     
     #user is requesting a ticket to talk to a service
     def return_ticket(self, username, recipient, tgt):
