@@ -18,14 +18,14 @@ class KDC:
         return self.crypto_system.decrypt(ciphertext, shared_key)
 
     #return encrypted TGT payload, including session key and TGT encrypted using the user's secret key
-    def register(self, username):
+    def register(self, username, key):
         session_key = self.generate_session_key()
         tgt = self.generate_TGT(username, session_key)
 
         payload = {"session_key": str(session_key), "tgt": str(tgt)}
         payload_bytes = self.get_payload_bytes(payload)
 
-        return self.crypto_system.encrypt(session_key, self.user_secrets[username]),self.crypto_system.encrypt(tgt, self.user_secrets[username])
+        return self.crypto_system.encrypt(session_key, key),self.crypto_system.encrypt(tgt, key)
     
     def update_key(self, tgt):
         #decrypt tgt using KDC key to get old session key of user
