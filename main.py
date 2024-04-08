@@ -27,7 +27,7 @@ user_secrets = {
   "cody": usernames['cody'].encode()
 }
 
-kdc = KDC.KDC(user_secrets, user_secrets)
+kdc = KDC.KDC(user_secrets)
 
 # KDC functions for encryption/decryption
 def encrypt_shared_key(plaintext, shared_key):

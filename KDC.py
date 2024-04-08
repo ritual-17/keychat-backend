@@ -4,9 +4,9 @@ import json
 import AES
 
 class KDC:
-    def __init__(self, user_secrets, service_secrets):
+    def __init__(self, user_secrets):
         self.user_secrets = user_secrets #users keys
-        self.service_secrets = service_secrets #service keys
+        self.service_secrets = {"server": self.generate_session_key()} #service keys
         self.K = secrets.token_bytes(16) #the KDC's key
         self.crypto_system = AES.AES() #our encryption algorithm
         self.active_users = {} #active users and their connections
