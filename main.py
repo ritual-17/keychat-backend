@@ -4,7 +4,7 @@ import socketio
 import threading
 import base64
 from controllers.employee_controller import Employee
-from controllers.contacts_controller import ContactsController  # Adjust the import path as necessary
+from controllers.contacts_controller import ContactsController
 from controllers.chat_controller import ChatController
 from controllers.contacts_controller import ContactsController
 from bson import ObjectId
@@ -75,7 +75,7 @@ def use_ticket(sid, username, service, ticket):
   decrypted_ticket_json = json.loads(decrypted_ticket)
   sender = decrypted_ticket_json["sender"]
 
-  #make sure sender is the same as the username
+
   if sender != username:
     return "Invalid ticket"
   shared_key = eval(decrypted_ticket_json["shared_key"])

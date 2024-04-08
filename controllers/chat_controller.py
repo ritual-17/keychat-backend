@@ -4,7 +4,6 @@ from database.db import get_chat_collection
 import json
 import KDC
 
-# Define user_secrets dictionary
 usernames = {
   "alice": "password12345678",
   "bob" : "password87654321",
