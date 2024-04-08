@@ -71,7 +71,7 @@ def refresh_keys():
 def use_ticket(sid, username, service, ticket):
   #use service secret key to decrypt ticket
   secret_key = kdc.getServiceKey(service)
-  decrypted_ticket = encrypt_shared_key(ticket, secret_key)
+  decrypted_ticket = decrypt_shared_key(ticket, secret_key)
   decrypted_ticket_json = json.loads(decrypted_ticket)
   sender = decrypted_ticket_json["sender"]
 
