@@ -20,26 +20,23 @@ contacts_controller = ContactsController()
 chat_controller = ChatController()
 announcement_controller = AnnouncementController()
 
-usernames = {
-  "alice": "password12345678",
-  "bob" : "password87654321",
-  "cody": "passwordabcdefghi"
-}
+employees = Employee.get_all()
+user_secrets = {}
 
-user_secrets = {
-  "alice": usernames['alice'].encode(),
-  "bob" : usernames['bob'].encode(),
-  "cody": usernames['cody'].encode()
-}
+for employee in employees:
+  try:
+    user_secrets[employee["email"]] = employee["passwordHash"].encode()
+  except:
+    print(f"User {employee['email']} does not have a password hash.")
 
 shared_keys = {}
 
 kdc = KDC.KDC(user_secrets)
 
 @sio.event
-def register(sid, username):
+def register(sid, username, key):
   kdc.add_user(username, sid)
-  return kdc.register(username)
+  return kdc.register(username, key)
 
 @sio.event
 def disconnect(sid):
@@ -79,16 +76,16 @@ def use_ticket(sid, username, service, ticket):
 def update_key(sid, tgt):
   return kdc.update_key(tgt)
 
-@sio.event
-def get_login(sid, data):
-  username, password = data.split(",")
-  if username in usernames.keys():
-    if usernames[username] == password:
-      return 100
-    else:
-      return 200
-  else:
-    return 200
+# @sio.event
+# def get_login(sid, data):
+#   username, password = data.split(",")
+#   if username in usernames.keys():
+#     if usernames[username] == password:
+#       return 100
+#     else:
+#       return 200
+#   else:
+#     return 200
 
 
 @sio.event
@@ -191,7 +188,25 @@ def get_user_contacts(sid, user_id):
     except Exception as e:
         print("Error for SID:", sid, str(e))
         sio.emit('error', {'error': str(e)}, room=sid)
-
+      
+@sio.event
+def add_contact_by_name(sid, user_id, contact_name):
+  try:
+    employees = Employee.get_all()  # Use the controller method to get all employees
+    for employee in employees:
+      try:
+        print(employee['username'], contact_name)
+        if str(employee['username']) == str(contact_name):
+          contact_id = contacts_controller.add_contact(user_id, employee['_id'])
+          employee['_id'] = str(employee['_id'])
+          sio.emit('contact_added', {'employee' : employee}, room=sid)
+          return
+      except Exception as e:
+        print(e)
+    sio.emit('contact_not_found', {'message': 'Contact not found'}, room=sid)
+  except Exception as e:
+    print(f"Error retrieving employees: {contact_name}")
+    sio.emit('error', {'error': 'Failed to retrieve employees'}, room=sid)
 
 @sio.event
 def create_chat(sid, participants, subject):
