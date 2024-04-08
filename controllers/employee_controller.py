@@ -30,6 +30,14 @@ class Employee:
         employee_collection = get_employee_collection()
         return employee_collection.delete_one({'_id': ObjectId(employee_id)})
     
+    @staticmethod
+    def login(email, password_hash):
+        employee_collection = get_employee_collection()
+        employee = employee_collection.find_one({
+            'email': email,
+            'passwordHash': password_hash
+        })
+        return employee
 
 
     

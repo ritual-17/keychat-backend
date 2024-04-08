@@ -66,10 +66,6 @@ def user_contacts(data):
     print('User contacts:', data)
     sio.disconnect()
 
-# @sio.event
-# def employee_data(data):
-#     print('Employee data:', data)
-
 def main():
     sio.connect('http://localhost:8080')  # or your server URL
 

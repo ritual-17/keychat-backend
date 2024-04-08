@@ -4,9 +4,9 @@ import json
 import AES
 
 class KDC:
-    def __init__(self, user_secrets, service_secrets):
+    def __init__(self, user_secrets):
         self.user_secrets = user_secrets #users keys
-        self.service_secrets = service_secrets #service keys
+        self.service_secrets = {"server": self.generate_session_key()} #service keys
         self.K = secrets.token_bytes(16) #the KDC's key
         self.crypto_system = AES.AES() #our encryption algorithm
         self.active_users = {} #active users and their connections
@@ -18,14 +18,14 @@ class KDC:
         return self.crypto_system.decrypt(ciphertext, shared_key)
 
     #return encrypted TGT payload, including session key and TGT encrypted using the user's secret key
-    def register(self, username):
+    def register(self, username, key):
         session_key = self.generate_session_key()
         tgt = self.generate_TGT(username, session_key)
 
         payload = {"session_key": str(session_key), "tgt": str(tgt)}
         payload_bytes = self.get_payload_bytes(payload)
 
-        return self.crypto_system.encrypt(session_key, self.user_secrets[username]),self.crypto_system.encrypt(tgt, self.user_secrets[username])
+        return self.crypto_system.encrypt(session_key, key),self.crypto_system.encrypt(tgt, key)
     
     def update_key(self, tgt):
         #decrypt tgt using KDC key to get old session key of user
@@ -95,4 +95,7 @@ class KDC:
     def get_payload_bytes(self, payload):
         payload_json = json.dumps(payload)
         return str.encode(payload_json)
+    
+    def getServiceKey(self, service):
+        return self.service_secrets[service]
     

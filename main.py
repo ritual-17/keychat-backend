@@ -1,3 +1,4 @@
+import json
 import eventlet
 import socketio
 import threading
@@ -7,7 +8,9 @@ from controllers.contacts_controller import ContactsController  # Adjust the imp
 from controllers.chat_controller import ChatController
 from controllers.contacts_controller import ContactsController
 from bson import ObjectId
-import json
+from controllers.announcement_controller import AnnouncementController
+
+
 
 import KDC
 
@@ -15,20 +18,10 @@ sio = socketio.Server()
 app = socketio.WSGIApp(sio)
 contacts_controller = ContactsController()
 chat_controller = ChatController()
+announcement_controller = AnnouncementController()
 
-usernames = {
-  "alice": "password12345678",
-  "bob" : "password87654321",
-  "cody": "passwordabcdefghi"
-}
-
-user_secrets = {
-  "alice": usernames['alice'].encode(),
-  "bob" : usernames['bob'].encode(),
-  "cody": usernames['cody'].encode()
-}
-
-kdc = KDC.KDC(user_secrets, user_secrets)
+employees = Employee.get_all()
+user_secrets = {}
 
 # KDC functions for encryption/decryption
 def encrypt_shared_key(plaintext, shared_key):
@@ -37,10 +30,20 @@ def encrypt_shared_key(plaintext, shared_key):
 def decrypt_shared_key(ciphertext, shared_key):
     return kdc.decrypt_shared_key(ciphertext, shared_key)
 
+for employee in employees:
+  try:
+    user_secrets[employee["email"]] = employee["passwordHash"].encode()
+  except:
+    print(f"User {employee['email']} does not have a password hash.")
+
+shared_keys = {}
+
+kdc = KDC.KDC(user_secrets)
+
 @sio.event
-def register(sid, username):
+def register(sid, username, key):
   kdc.add_user(username, sid)
-  return kdc.register(username)
+  return kdc.register(username, key)
 
 @sio.event
 def disconnect(sid):
@@ -57,21 +60,39 @@ def refresh_keys():
     for user in kdc.active_users:
       sio.emit('start_key_update', to=user)
       
+@sio.event
+def use_ticket(sid, username, service, ticket):
+  #use service secret key to decrypt ticket
+  secret_key = kdc.getServiceKey(service)
+  decrypted_ticket = encrypt_shared_key(ticket, secret_key)
+  decrypted_ticket_json = json.loads(decrypted_ticket)
+  sender = decrypted_ticket_json["sender"]
+  
+  #make sure sender is the same as the username
+  if sender != username:
+    return "Invalid ticket"
+  shared_key = eval(decrypted_ticket_json["shared_key"])
+  shared_key[username] = shared_key
+
+  #return 'ok' reponse encrypted with shared key
+  response = encrypt_shared_key("100", shared_key)
+  return response
+
 
 @sio.event
 def update_key(sid, tgt):
   return kdc.update_key(tgt)
 
-@sio.event
-def get_login(sid, data):
-  username, password = data.split(",")
-  if username in usernames.keys():
-    if usernames[username] == password:
-      return 100
-    else:
-      return 200
-  else:
-    return 200
+# @sio.event
+# def get_login(sid, data):
+#   username, password = data.split(",")
+#   if username in usernames.keys():
+#     if usernames[username] == password:
+#       return 100
+#     else:
+#       return 200
+#   else:
+#     return 200
 
 
 @sio.event
@@ -128,6 +149,24 @@ def delete_employee(sid, employee_id):
     except Exception as e:
         sio.emit('error', {'error': str(e)}, room=sid)
 
+
+@sio.event
+def login(sid, data):
+    try:
+        email = data['email']
+        password_hash = data['password_hash']
+
+        employee = Employee.login(email, password_hash)
+        if employee:
+            employee['_id'] = str(employee['_id'])  # Convert ObjectId to string for JSON serialization
+            sio.emit('login_success', {'employee': employee}, room=sid)
+        else:
+            sio.emit('login_failed', {'message': 'Invalid email or password'}, room=sid)
+    except Exception as e:
+        sio.emit('error', {'error': str(e)}, room=sid)
+
+
+
 @sio.event
 def add_contact(sid, user_id, contact_user_id):
     try:
@@ -156,7 +195,25 @@ def get_user_contacts(sid, user_id):
     except Exception as e:
         print("Error for SID:", sid, str(e))
         sio.emit('error', {'error': str(e)}, room=sid)
-
+      
+@sio.event
+def add_contact_by_name(sid, user_id, contact_name):
+  try:
+    employees = Employee.get_all()  # Use the controller method to get all employees
+    for employee in employees:
+      try:
+        print(employee['username'], contact_name)
+        if str(employee['username']) == str(contact_name):
+          contact_id = contacts_controller.add_contact(user_id, employee['_id'])
+          employee['_id'] = str(employee['_id'])
+          sio.emit('contact_added', {'employee' : employee}, room=sid)
+          return
+      except Exception as e:
+        print(e)
+    sio.emit('contact_not_found', {'message': 'Contact not found'}, room=sid)
+  except Exception as e:
+    print(f"Error retrieving employees: {contact_name}")
+    sio.emit('error', {'error': 'Failed to retrieve employees'}, room=sid)
 
 @sio.event
 def create_chat(sid, participants, subject):
@@ -179,20 +236,144 @@ def add_chat_message(sid, chat_id, sender_id, content):
         sio.emit('error', {'error': str(e)}, room=sid)
 
 @sio.event
-def get_chat(sid, encrypted_chat_data):
+def get_chat(sid, chat_id):
     try:
-        decrypted_chat_data = decrypt_shared_key(encrypted_chat_data, sid)
-        chat = json.loads(decrypted_chat_data)
-        if chat:
+        print(f"GET CHAT IS CALLED for SID: {sid} and chat_id: {chat_id}")
+        encrypted_chat_data = chat_controller.get_chat(chat_id)  # Retrieve encrypted chat data
+        print(f"Encrypted chat data retrieved: {encrypted_chat_data}")
+
+        if encrypted_chat_data:
+            decrypted_chat_data = decrypt_shared_key(encrypted_chat_data, sid)  # Decrypt chat data
+            chat = json.loads(decrypted_chat_data)
             chat['_id'] = str(chat['_id'])
             chat['participants'] = [str(participant) for participant in chat['participants']]
             chat['createdAt'] = chat['createdAt'].isoformat() if 'createdAt' in chat else 'Unknown'
+            chat['messages'] = [
+                {
+                    **message,
+                    'messageId': str(message['messageId']),
+                    'senderId': str(message['senderId']),
+                    'sentAt': message['sentAt'].isoformat() if 'sentAt' in message else 'Unknown',
+                    'status': message.get('status', 'Unknown')
+                } for message in chat['messages']
+            ]
+
+            print(f"Emitting chat_retrieved for chat {chat['_id']}")
             sio.emit('chat_retrieved', chat, room=sid)
         else:
+            print("Chat not found.")
             sio.emit('chat_not_found', {'message': 'Chat not found'}, room=sid)
     except Exception as e:
+        print(f"Error in get_chat: {str(e)}")
         sio.emit('error', {'error': str(e)}, room=sid)
 
+
+# @sio.event
+# def create_announcement(sid, title, content, created_by):
+#     try:
+#         announcement_id = announcement_controller.create_announcement(title, content, created_by)
+#         sio.emit('announcement_created', {'announcement_id': str(announcement_id)}, room=sid)
+#     except Exception as e:
+#         sio.emit('announcement_error', {'error': str(e)}, room=sid)
+
+# @sio.event
+# def create_announcement(sid, data):
+#     print("Announcement creation attempted", data)
+#     try:
+#         # Extract information from the data dictionary
+#         title = data['title']
+#         content = data['content']
+#         created_by = data['createdBy']
+
+#         # Corrected print statement
+#         print(f"Title: {title}, Content: {content}, Created by: {created_by}")
+
+#         announcement_id = announcement_controller.create_announcement(title, content, created_by)
+#         sio.emit('announcement_created', {'announcement_id': str(announcement_id)}, room=sid)
+#     except Exception as e:
+#         print(f"Error creating announcement: {e}")  # Added print for debugging
+#         sio.emit('announcement_error', {'error': str(e)}, room=sid)
+@sio.event
+def create_announcement(sid, data):
+    try:
+        title = data['title']
+        content = data['content']
+        created_by = data.get('createdBy')
+
+        # Validate or generate a new ObjectId
+        if not ObjectId.is_valid(created_by):
+            created_by = ObjectId()  # Generate a new ObjectId if invalid
+            print(f"Generated new ObjectId for createdBy: {created_by}")
+
+        print(f"Title: {title}, Content: {content}, Created by: {created_by}")
+
+        announcement_id = announcement_controller.create_announcement(title, content, created_by)
+        sio.emit('announcement_created', {'announcement_id': str(announcement_id)}, room=sid)
+    except Exception as e:
+        print(f"Error creating announcement: {e}")
+        sio.emit('announcement_error', {'error': str(e)}, room=sid)
+
+
+
+# @sio.event
+# def get_announcement(sid, announcement_id):
+#     try:
+#         announcement = announcement_controller.get_announcement(announcement_id)
+#         if announcement:
+#             announcement['_id'] = str(announcement['_id'])
+#             announcement['createdBy'] = str(announcement['createdBy'])
+#             sio.emit('announcement_retrieved', announcement, room=sid)
+#         else:
+#             sio.emit('announcement_not_found', {'message': 'Announcement not found'}, room=sid)
+#     except Exception as e:
+#         sio.emit('error', {'error': str(e)}, room=sid)
+
+@sio.event
+def get_announcement(sid, announcement_id):
+    try:
+        announcement = announcement_controller.get_announcement(announcement_id)
+        if announcement:
+            announcement['_id'] = str(announcement['_id'])
+            announcement['createdBy'] = str(announcement['createdBy'])
+            # Convert datetime to string in ISO format
+            if 'createdAt' in announcement and announcement['createdAt']:
+                announcement['createdAt'] = announcement['createdAt'].isoformat()
+
+            sio.emit('announcement_retrieved', announcement, room=sid)
+        else:
+            sio.emit('announcement_not_found', {'message': 'Announcement not found'}, room=sid)
+    except Exception as e:
+        print(f"Error retrieving announcement: {e}")
+        sio.emit('error', {'error': str(e)}, room=sid)
+
+
+# @sio.event
+# def get_all_announcements(sid):
+#     try:
+#         announcements = announcement_controller.get_all_announcements()
+#         for announcement in announcements:
+#             announcement['_id'] = str(announcement['_id'])
+#             announcement['createdBy'] = str(announcement['createdBy'])
+#         sio.emit('all_announcements', announcements, room=sid)
+#     except Exception as e:
+#         sio.emit('error', {'error': str(e)}, room=sid)
+@sio.event
+def get_all_announcements(sid):
+    try:
+        announcements = announcement_controller.get_all_announcements()
+        for announcement in announcements:
+            # Convert ObjectId to string
+            announcement['_id'] = str(announcement['_id'])
+            announcement['createdBy'] = str(announcement['createdBy'])
+            
+            # Convert datetime to ISO format string
+            if 'createdAt' in announcement and announcement['createdAt']:
+                announcement['createdAt'] = announcement['createdAt'].isoformat()
+
+        sio.emit('all_announcements', announcements, room=sid)
+    except Exception as e:
+        print(f"Error retrieving all announcements: {e}")
+        sio.emit('error', {'error': str(e)}, room=sid)
 
 
 
