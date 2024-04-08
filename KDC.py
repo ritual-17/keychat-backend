@@ -96,3 +96,6 @@ class KDC:
         payload_json = json.dumps(payload)
         return str.encode(payload_json)
     
+    def getServiceKey(self, service):
+        return self.service_secrets[service]
+    
