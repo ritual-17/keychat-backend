@@ -1,3 +1,4 @@
+import json
 import eventlet
 import socketio
 import threading
@@ -26,6 +27,8 @@ user_secrets = {
   "bob" : usernames['bob'].encode(),
   "cody": usernames['cody'].encode()
 }
+
+shared_keys = {}
 
 kdc = KDC.KDC(user_secrets)
 
@@ -56,6 +59,24 @@ def refresh_keys():
     for user in kdc.active_users:
       sio.emit('start_key_update', to=user)
       
+@sio.event
+def use_ticket(sid, username, service, ticket):
+  #use service secret key to decrypt ticket
+  secret_key = kdc.getServiceKey(service)
+  decrypted_ticket = decrypt_shared_key(ticket, secret_key)
+  decrypted_ticket_json = json.loads(decrypted_ticket)
+  sender = decrypted_ticket_json["sender"]
+  
+  #make sure sender is the same as the username
+  if sender != username:
+    return "Invalid ticket"
+  shared_key = eval(decrypted_ticket_json["shared_key"])
+  shared_key[username] = shared_key
+
+  #return 'ok' reponse encrypted with shared key
+  response = encrypt_shared_key("100", shared_key)
+  return response
+
 
 @sio.event
 def update_key(sid, tgt):
