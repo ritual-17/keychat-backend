@@ -29,7 +29,7 @@ user_secrets = {
 
 kdc = KDC.KDC(user_secrets, user_secrets)
 
-# Integrate KDC functions for encryption and decryption
+# KDC functions for encryption/decryption
 def encrypt_shared_key(plaintext, shared_key):
     return kdc.encrypt_shared_key(plaintext, shared_key)
 
