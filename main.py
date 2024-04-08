@@ -127,6 +127,35 @@ def delete_employee(sid, employee_id):
     except Exception as e:
         sio.emit('error', {'error': str(e)}, room=sid)
 
+# @sio.event
+# def login(sid, email, password_hash):
+#     try:
+#         employee = Employee.login(email, password_hash)
+#         if employee:
+#             employee['_id'] = str(employee['_id'])  # Convert ObjectId to string for JSON serialization
+#             sio.emit('login_success', {'employee': employee}, room=sid)
+#         else:
+#             sio.emit('login_failed', {'message': 'Invalid email or password'}, room=sid)
+#     except Exception as e:
+#         sio.emit('error', {'error': str(e)}, room=sid)
+
+@sio.event
+def login(sid, data):
+    try:
+        email = data['email']
+        password_hash = data['password_hash']
+
+        employee = Employee.login(email, password_hash)
+        if employee:
+            employee['_id'] = str(employee['_id'])  # Convert ObjectId to string for JSON serialization
+            sio.emit('login_success', {'employee': employee}, room=sid)
+        else:
+            sio.emit('login_failed', {'message': 'Invalid email or password'}, room=sid)
+    except Exception as e:
+        sio.emit('error', {'error': str(e)}, room=sid)
+
+
+
 @sio.event
 def add_contact(sid, user_id, contact_user_id):
     try:

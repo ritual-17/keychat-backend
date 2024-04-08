@@ -25,11 +25,31 @@ def connect():
         'status': 'active'
     })
 
+# @sio.event
+# def employee_added(data):
+#     global employee_id
+#     employee_id = data['employee_id']
+#     print('Employee added:', data)
+
+#     # After adding, test getting this employee's data
+#     sio.emit('get_employee', employee_id)
+
+
 @sio.event
 def employee_added(data):
     global employee_id
     employee_id = data['employee_id']
     print('Employee added:', data)
+
+    # After adding, attempt to login with the added employee's credentials
+    # Ensure that the 'login' event is called with the correct parameters
+    sio.emit('login', {'email': fake_email, 'password_hash': 'hashed_password_example'})
+
+
+@sio.event
+def login_success(data):
+    print('Login successful:', data)
+    # Proceed with other tests or actions after successful login
 
     # After adding, test getting this employee's data
     sio.emit('get_employee', employee_id)
@@ -53,6 +73,11 @@ def get_updated_employee(data):
     
     # Test deleting the employee
     sio.emit('delete_employee', employee_id)
+
+@sio.event
+def login_failed(data):
+    print('Login failed:', data)
+    sio.disconnect()
 
 @sio.event
 def employee_deleted(data):
