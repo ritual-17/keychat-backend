@@ -16,15 +16,23 @@ contacts_controller = ContactsController()
 chat_controller = ChatController()
 
 usernames = {
-  "alice": "password123",
-  "bob" : "password456",
-  "cody": "password789"
+  "alice": "password12345678",
+  "bob" : "password87654321",
+  "cody": "passwordabcdefghi"
 }
+
+user_secrets = {
+  "alice": usernames['alice'].encode(),
+  "bob" : usernames['bob'].encode(),
+  "cody": usernames['cody'].encode()
+}
+
+kdc = KDC.KDC(user_secrets, user_secrets)
 
 @sio.event
 def register(sid, username):
   kdc.add_user(username, sid)
-  return kdc.register(username)
+  return base64.b64encode(kdc.register(username)).decode()
 
 @sio.event
 def disconnect(sid):
@@ -51,11 +59,11 @@ def get_login(sid, data):
   username, password = data.split(",")
   if username in usernames.keys():
     if usernames[username] == password:
-      sio.emit("login_success")
+      return 100
     else:
-      sio.emit("login_failure")
+      return 200
   else:
-    sio.emit("login_failure")
+    return 200
 
 
 @sio.event
