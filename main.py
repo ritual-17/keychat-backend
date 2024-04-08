@@ -7,6 +7,7 @@ from controllers.contacts_controller import ContactsController  # Adjust the imp
 from controllers.chat_controller import ChatController
 from controllers.contacts_controller import ContactsController
 from bson import ObjectId
+import json
 
 import KDC
 
@@ -161,7 +162,8 @@ def get_user_contacts(sid, user_id):
 def create_chat(sid, participants, subject):
     try:
         chat_id = chat_controller.create_chat(participants, subject)
-        sio.emit('chat_created', {'chat_id': str(chat_id)}, room=sid)
+        encrypted_chat_id = encrypt_shared_key(str(chat_id), participants)
+        sio.emit('chat_created', {'chat_id': encrypted_chat_id}, room=sid)
     except Exception as e:
         sio.emit('chat_error', {'error': str(e)}, room=sid)
 
@@ -177,33 +179,18 @@ def add_chat_message(sid, chat_id, sender_id, content):
         sio.emit('error', {'error': str(e)}, room=sid)
 
 @sio.event
-def get_chat(sid, chat_id):
+def get_chat(sid, encrypted_chat_data):
     try:
-        print(f"GET CHAT IS CALLED for SID: {sid} and chat_id: {chat_id}")
-        chat = chat_controller.get_chat(chat_id)
-        print(f"Chat data retrieved: {chat}")
-
+        decrypted_chat_data = decrypt_shared_key(encrypted_chat_data, sid)
+        chat = json.loads(decrypted_chat_data)
         if chat:
             chat['_id'] = str(chat['_id'])
             chat['participants'] = [str(participant) for participant in chat['participants']]
             chat['createdAt'] = chat['createdAt'].isoformat() if 'createdAt' in chat else 'Unknown'
-            chat['messages'] = [
-                {
-                    **message,
-                    'messageId': str(message['messageId']),
-                    'senderId': str(message['senderId']),
-                    'sentAt': message['sentAt'].isoformat() if 'sentAt' in message else 'Unknown',
-                    'status': message.get('status', 'Unknown')
-                } for message in chat['messages']
-            ]
-
-            print(f"Emitting chat_retrieved for chat {chat['_id']}")
             sio.emit('chat_retrieved', chat, room=sid)
         else:
-            print("Chat not found.")
             sio.emit('chat_not_found', {'message': 'Chat not found'}, room=sid)
     except Exception as e:
-        print(f"Error in get_chat: {str(e)}")
         sio.emit('error', {'error': str(e)}, room=sid)
 
 
