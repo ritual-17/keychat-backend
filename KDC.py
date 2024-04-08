@@ -11,6 +11,12 @@ class KDC:
         self.crypto_system = AES.AES() #our encryption algorithm
         self.active_users = {} #active users and their connections
 
+    def encrypt_shared_key(self, plaintext, shared_key):
+        return self.crypto_system.encrypt(plaintext, shared_key)
+
+    def decrypt_shared_key(self, ciphertext, shared_key):
+        return self.crypto_system.decrypt(ciphertext, shared_key)
+
     #return encrypted TGT payload, including session key and TGT encrypted using the user's secret key
     def register(self, username):
         session_key = self.generate_session_key()
@@ -36,6 +42,8 @@ class KDC:
         session_key_response = self.crypto_system.encrypt(new_session_key, session_key)
         tgt_response = self.crypto_system.encrypt(new_tgt, session_key)
         return session_key_response, tgt_response
+
+
 
 
     def add_user(self, username, sid):
