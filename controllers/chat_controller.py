@@ -17,9 +17,9 @@ user_secrets = {
   "cody": usernames['cody'].encode()
 }
 class ChatController:
-    def __init__(self):
+    def __init__(self, kdc):
         self.chat_collection = get_chat_collection()
-        self.kdc = KDC.KDC(user_secrets)  # Initialize KDC instance
+        self.kdc = kdc  # Initialize KDC instance
 
     def create_chat(self, participants, subject):
         chat_data = {
