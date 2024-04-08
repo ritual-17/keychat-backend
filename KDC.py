@@ -19,8 +19,6 @@ class KDC:
         payload = {"session_key": str(session_key), "tgt": str(tgt)}
         payload_bytes = self.get_payload_bytes(payload)
 
-        response = self.crypto_system.encrypt(payload_bytes, self.user_secrets[username])
-
         return self.crypto_system.encrypt(session_key, self.user_secrets[username]),self.crypto_system.encrypt(tgt, self.user_secrets[username])
     
     def update_key(self, tgt):
@@ -34,11 +32,10 @@ class KDC:
         new_session_key = self.generate_session_key()
         new_tgt = self.generate_TGT(username, new_session_key)
 
-        #create and return payload
-        payload = {"session_key": str(new_session_key), "tgt": str(new_tgt)}
-        payload_bytes = self.get_payload_bytes(payload)
-        response = self.crypto_system.encrypt(payload_bytes, session_key)
-        return response
+        #encrypt and return new session key and new tgt
+        session_key_response = self.crypto_system.encrypt(new_session_key, session_key)
+        tgt_response = self.crypto_system.encrypt(new_tgt, session_key)
+        return session_key_response, tgt_response
 
 
     def add_user(self, username, sid):
@@ -64,10 +61,10 @@ class KDC:
         ticket = self.generate_ticket(username, shared_key, recipient_key)
 
         #create and return payload
-        payload = {"recipient": recipient, "shared_key": str(shared_key), "ticket": str(ticket)}
-        payload_bytes = self.get_payload_bytes(payload)
-        payload_encrypted = self.crypto_system.encrypt(payload_bytes, user_session_key)
-        return payload_encrypted
+        recipient_response = self.crypto_system.encrypt(recipient, user_session_key)
+        shared_key_response = self.crypto_system.encrypt(shared_key, user_session_key)
+        ticket_response = self.crypto_system.encrypt(ticket, user_session_key)
+        return recipient_response, shared_key_response, ticket_response
     
     def generate_ticket(self, sender, shared_key, key):
         payload = {"sender": sender, "shared_key": str(shared_key)}
