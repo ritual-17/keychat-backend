@@ -69,7 +69,7 @@ class KDC:
         ticket = self.generate_ticket(username, shared_key, recipient_key)
 
         #create and return payload
-        recipient_response = self.crypto_system.encrypt(recipient, user_session_key)
+        recipient_response = self.crypto_system.encrypt(recipient.encode(), user_session_key)
         shared_key_response = self.crypto_system.encrypt(shared_key, user_session_key)
         ticket_response = self.crypto_system.encrypt(ticket, user_session_key)
         return recipient_response, shared_key_response, ticket_response
