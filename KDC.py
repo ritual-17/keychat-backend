@@ -21,7 +21,7 @@ class KDC:
 
         response = self.crypto_system.encrypt(payload_bytes, self.user_secrets[username])
 
-        return response
+        return session_key,tgt
     
     def update_key(self, tgt):
         #decrypt tgt using KDC key to get old session key of user
