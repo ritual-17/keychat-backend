@@ -32,7 +32,7 @@ kdc = KDC.KDC(user_secrets, user_secrets)
 @sio.event
 def register(sid, username):
   kdc.add_user(username, sid)
-  return base64.b64encode(kdc.register(username)).decode()
+  return kdc.register(username)
 
 @sio.event
 def disconnect(sid):
