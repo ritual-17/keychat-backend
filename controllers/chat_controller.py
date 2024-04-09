@@ -37,27 +37,54 @@ class ChatController:
         print(f"Error adding message: {e}")
         return False
 
-    def get_chat(self, chat_id, shared_key):
-        chat = self.chat_collection.find_one({"_id": ObjectId(chat_id)})
-        if chat:
-            chat['_id'] = str(chat['_id'])  # Convert ObjectId to string
-            chat['participants'] = [str(participant) for participant in chat['participants']]
-            chat['createdAt'] = str(chat['createdAt']) if 'createdAt' in chat else 'Unknown'
-            chat['messages'] = [{
-                **message, 'messageId':
-                str(message['messageId']),
-                'senderId':
-                str(message['senderId']),
-                'sentAt':
-                str(message['sentAt']) if 'sentAt' in message else 'Unknown',
-                'status':
-                message.get('status', 'Unknown')
-            } for message in chat['messages']]
-            chat_data = json.dumps(chat)  # Convert chat data to JSON format before encryption
-            return self.kdc.encrypt_shared_key(chat_data.encode(), shared_key)  # Encrypt chat data
-        else:
-            return None
-
+    def get_chat(self, chat_id):
+      chat = self.chat_collection.find_one({"_id": ObjectId(chat_id)})
+      if chat:
+          chat['_id'] = str(chat['_id'])  # Convert ObjectId to string
+          chat['participants'] = [str(participant) for participant in chat['participants']]
+          chat['createdAt'] = str(chat['createdAt']) if 'createdAt' in chat else 'Unknown'
+          chat['messages'] = [{
+              **message, 'messageId':
+              str(message['messageId']),
+              'senderId':
+              str(message['senderId']),
+              'sentAt':
+              str(message['sentAt']) if 'sentAt' in message else 'Unknown',
+              'status':
+              message.get('status', 'Unknown')
+          } for message in chat['messages']]
+          return chat
+      else:
+          return None
+  
+    def get_chat_from_participants(self, participants):
+      print('PARTICIPANTS', participants)
+      all_chats = self.chat_collection.find({})
+      chat = None
+      for chats in all_chats:
+        chat_participants = [str(p) for p in chats['participants']]
+        print(chat_participants)
+        if participants[0] in chat_participants and participants[1] in chat_participants:
+          chat = chats
+          break
+      if chat:
+        chat['_id'] = str(chat['_id'])  # Convert ObjectId to string
+        chat['participants'] = [str(participant) for participant in chat['participants']]
+        chat['createdAt'] = str(chat['createdAt']) if 'createdAt' in chat else 'Unknown'
+        chat['messages'] = [{
+            **message, 'messageId':
+            str(message['messageId']),
+            'senderId':
+            str(message['senderId']),
+            'sentAt':
+            str(message['sentAt']) if 'sentAt' in message else 'Unknown',
+            'status':
+            message.get('status', 'Unknown')
+        } for message in chat['messages']]
+        return chat
+      else:
+        return None
+        
     def update_message_status(self, chat_id, message_id, status):
         self.chat_collection.update_one(
             {"_id": ObjectId(chat_id), "messages.messageId": ObjectId(message_id)},

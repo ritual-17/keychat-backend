@@ -107,10 +107,10 @@ def add_employee(sid, employee_data):
   try:
     employee = Employee(employee_data)
     employee_id = employee.add_to_db()
+    contacts_controller.add_contact(str(employee_id), str(employee_id))
     sio.emit('employee_added', {'employee_id': str(employee_id)}, room=sid)
   except Exception as e:
     sio.emit('employee_add_error', {'error': str(e)}, room=sid)
-
 
 @sio.event
 def get_all_employees(sid):
@@ -195,10 +195,10 @@ def login(sid, data):
 def add_contact(sid, user_id, contact_user_id):
   try:
     contact_id = contacts_controller.add_contact(user_id, contact_user_id)
+    chat_controller.create_chat([user_id, contact_user_id], "Chat", shared_keys[user_id])
     sio.emit('contact_added', {'contact_id': str(contact_id)}, room=sid)
   except Exception as e:
     sio.emit('contact_error', {'error': str(e)}, room=sid)
-
 
 @sio.event
 def get_user_contacts(sid, user_id):
@@ -253,13 +253,25 @@ def create_chat(sid, participants, subject):
   except Exception as e:
     sio.emit('chat_error', {'error': str(e)}, room=sid)
 
-
+@sio.event
+def get_chat_from_participants(sid, participants):
+  try:
+    chat = chat_controller.get_chat_from_participants(participants)
+    if chat:
+      chat['_id'] = str(chat['_id'])
+      chat['participants'] = [str(p) for p in chat['participants']]
+      sio.emit('chat_data', chat, room=sid)
+    else:
+      sio.emit('chat_not_found', {'message': 'No chat found'}, room=sid)
+  except Exception as e:
+    sio.emit('error', {'error': str(e)}, room=sid)
+    
 @sio.event
 def add_chat_message(sid, chat_id, sender_id, content):
   try:
     result = chat_controller.add_message(chat_id, sender_id, content)
     if result:
-      sio.emit('message_added', {'chat_id': str(chat_id)}, room=sid)
+      sio.emit('message_added', {'chat_id': str(chat_id)})
     else:
       sio.emit('message_error', {'error': 'Message not added'}, room=sid)
   except Exception as e:
@@ -267,16 +279,13 @@ def add_chat_message(sid, chat_id, sender_id, content):
 
 
 @sio.event
-def get_chat(sid, chat_id, shared_key):
+def get_chat(sid, user_id, chat_id):
   # try:
-    print(f"GET CHAT IS CALLED for SID: {sid} and chat_id: {chat_id}")
-    encrypted_chat_data = chat_controller.get_chat(chat_id, shared_key)  # Retrieve encrypted chat data
-    print(f"Encrypted chat data retrieved: {encrypted_chat_data}")
+    print(f"GET CHAT IS CALLED for SID: {sid}")
+    chat = chat_controller.get_chat(chat_id) 
+    print(f"Encrypted chat data retrieved: {chat}")
 
-    if encrypted_chat_data:
-      decrypted_chat_data = decrypt_shared_key(encrypted_chat_data,
-                                               shared_key)  # Decrypt chat data
-      chat = json.loads(decrypted_chat_data)
+    if chat:
       chat['_id'] = str(chat['_id'])
       chat['participants'] = [
           str(participant) for participant in chat['participants']
@@ -294,7 +303,7 @@ def get_chat(sid, chat_id, shared_key):
       } for message in chat['messages']]
 
       print(f"Emitting chat_retrieved for chat {chat['_id']}")
-      sio.emit('chat_retrieved', chat, room=sid)
+      sio.emit('chat_data', chat, room=sid)
     else:
       print("Chat not found.")
       sio.emit('chat_not_found', {'message': 'Chat not found'}, room=sid)
