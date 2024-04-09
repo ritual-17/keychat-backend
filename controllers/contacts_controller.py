@@ -16,6 +16,9 @@ class ContactsController:
         return self.contacts_collection.find_one({"userId": ObjectId(user_id)})
 
     def add_contact_to_list(self, user_id, contact_user_id):
+        contacts = self.contacts_collection.find({"userId": ObjectId(user_id)})
+        if not contacts:
+          return self.add_contact(user_id, contact_user_id)
         return self.contacts_collection.update_one(
             {"userId": ObjectId(user_id)},
             {"$addToSet": {"contacts": {"contactUserId": ObjectId(contact_user_id)}}}

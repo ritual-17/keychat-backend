@@ -230,9 +230,9 @@ def add_contact_by_name(sid, user_id, contact_name):
     )  # Use the controller method to get all employees
     for employee in employees:
       try:
-        if str(employee['username']) == str(contact_name):
-          contact_id = contacts_controller.add_contact(user_id,
-                                                       employee['_id'])
+        if employee['username'] == contact_name:
+          contacts_controller.add_contact_to_list(user_id, str(employee['_id']))
+          contacts_controller.add_contact_to_list(str(employee['_id']), user_id)
           employee['_id'] = str(employee['_id'])
           sio.emit('contact_added', {'employee': employee}, room=sid)
           return
