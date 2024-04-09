@@ -75,14 +75,13 @@ def use_ticket(sid, username, service, ticket):
   decrypted_ticket_json = json.loads(decrypted_ticket)
   sender = decrypted_ticket_json["sender"]
 
-
   if sender != username:
     return "Invalid ticket"
   shared_key = eval(decrypted_ticket_json["shared_key"])
-  shared_key[username] = shared_key
+  shared_keys[username] = shared_key
 
   #return 'ok' reponse encrypted with shared key
-  response = encrypt_shared_key("100", shared_key)
+  response = encrypt_shared_key("100".encode(), shared_key)
   return response
 
 
