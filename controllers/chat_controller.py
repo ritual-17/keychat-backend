@@ -4,23 +4,12 @@ from database.db import get_chat_collection
 import json
 import KDC
 
-usernames = {
-  "alice": "password12345678",
-  "bob" : "password87654321",
-  "cody": "passwordabcdefghi"
-}
-
-user_secrets = {
-  "alice": usernames['alice'].encode(),
-  "bob" : usernames['bob'].encode(),
-  "cody": usernames['cody'].encode()
-}
 class ChatController:
     def __init__(self, kdc):
         self.chat_collection = get_chat_collection()
         self.kdc = kdc  # Initialize KDC instance
 
-    def create_chat(self, participants, subject):
+    def create_chat(self, participants, subject, shared_key):
         chat_data = {
             "participants": [ObjectId(participant) for participant in participants],
             "subject": subject,
@@ -28,9 +17,10 @@ class ChatController:
             "messages": []
         }
         chat_id = self.chat_collection.insert_one(chat_data).inserted_id
-        return self.kdc.encrypt_shared_key(str(chat_id), participants)  # Encrypt the chat ID before returning
+        return self.kdc.encrypt_shared_key(str(chat_id).encode(), shared_key)  # Encrypt the chat ID before returning
 
     def add_message(self, chat_id, sender_id, content):
+      try:
         message_data = {
             "messageId": str(ObjectId()),
             "senderId": ObjectId(sender_id),
@@ -42,15 +32,29 @@ class ChatController:
             {"_id": ObjectId(chat_id)},
             {"$push": {"messages": message_data}}
         )
+        return True
+      except Exception as e:
+        print(f"Error adding message: {e}")
+        return False
 
-    def get_chat(self, chat_id):
+    def get_chat(self, chat_id, shared_key):
         chat = self.chat_collection.find_one({"_id": ObjectId(chat_id)})
         if chat:
             chat['_id'] = str(chat['_id'])  # Convert ObjectId to string
             chat['participants'] = [str(participant) for participant in chat['participants']]
-            chat['createdAt'] = chat['createdAt'].isoformat() if 'createdAt' in chat else 'Unknown'
+            chat['createdAt'] = str(chat['createdAt']) if 'createdAt' in chat else 'Unknown'
+            chat['messages'] = [{
+                **message, 'messageId':
+                str(message['messageId']),
+                'senderId':
+                str(message['senderId']),
+                'sentAt':
+                str(message['sentAt']) if 'sentAt' in message else 'Unknown',
+                'status':
+                message.get('status', 'Unknown')
+            } for message in chat['messages']]
             chat_data = json.dumps(chat)  # Convert chat data to JSON format before encryption
-            return self.kdc.encrypt_shared_key(chat_data, chat['participants'])  # Encrypt chat data
+            return self.kdc.encrypt_shared_key(chat_data.encode(), shared_key)  # Encrypt chat data
         else:
             return None
 

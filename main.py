@@ -68,17 +68,17 @@ def refresh_keys():
 
 
 @sio.event
-def use_ticket(sid, username, service, ticket):
+def use_ticket(sid, userid, service, ticket):
   #use service secret key to decrypt ticket
   secret_key = kdc.getServiceKey(service)
   decrypted_ticket = decrypt_shared_key(ticket, secret_key)
   decrypted_ticket_json = json.loads(decrypted_ticket)
   sender = decrypted_ticket_json["sender"]
 
-  if sender != username:
-    return "Invalid ticket"
+  if sender != userid:
+    return "Invalid ticket".encode()
   shared_key = eval(decrypted_ticket_json["shared_key"])
-  shared_keys[username] = shared_key
+  shared_keys[userid] = shared_key
 
   #return 'ok' reponse encrypted with shared key
   response = encrypt_shared_key("100".encode(), shared_key)
@@ -230,7 +230,6 @@ def add_contact_by_name(sid, user_id, contact_name):
     )  # Use the controller method to get all employees
     for employee in employees:
       try:
-        print(employee['username'], contact_name)
         if str(employee['username']) == str(contact_name):
           contact_id = contacts_controller.add_contact(user_id,
                                                        employee['_id'])
@@ -238,7 +237,7 @@ def add_contact_by_name(sid, user_id, contact_name):
           sio.emit('contact_added', {'employee': employee}, room=sid)
           return
       except Exception as e:
-        print(e)
+        pass
     sio.emit('contact_not_found', {'message': 'Contact not found'}, room=sid)
   except Exception as e:
     print(f"Error retrieving employees: {contact_name}")
@@ -247,10 +246,10 @@ def add_contact_by_name(sid, user_id, contact_name):
 
 @sio.event
 def create_chat(sid, participants, subject):
+  print(participants, subject, shared_keys)
   try:
-    chat_id = chat_controller.create_chat(participants, subject)
-    encrypted_chat_id = encrypt_shared_key(str(chat_id), participants)
-    sio.emit('chat_created', {'chat_id': encrypted_chat_id}, room=sid)
+    chat_id = chat_controller.create_chat(participants, subject, shared_keys[participants[0]])
+    return chat_id
   except Exception as e:
     sio.emit('chat_error', {'error': str(e)}, room=sid)
 
@@ -259,8 +258,8 @@ def create_chat(sid, participants, subject):
 def add_chat_message(sid, chat_id, sender_id, content):
   try:
     result = chat_controller.add_message(chat_id, sender_id, content)
-    if result.modified_count:
-      sio.emit('message_added', {'chat_id': chat_id}, room=sid)
+    if result:
+      sio.emit('message_added', {'chat_id': str(chat_id)}, room=sid)
     else:
       sio.emit('message_error', {'error': 'Message not added'}, room=sid)
   except Exception as e:
@@ -268,30 +267,28 @@ def add_chat_message(sid, chat_id, sender_id, content):
 
 
 @sio.event
-def get_chat(sid, chat_id):
-  try:
+def get_chat(sid, chat_id, shared_key):
+  # try:
     print(f"GET CHAT IS CALLED for SID: {sid} and chat_id: {chat_id}")
-    encrypted_chat_data = chat_controller.get_chat(
-        chat_id)  # Retrieve encrypted chat data
+    encrypted_chat_data = chat_controller.get_chat(chat_id, shared_key)  # Retrieve encrypted chat data
     print(f"Encrypted chat data retrieved: {encrypted_chat_data}")
 
     if encrypted_chat_data:
       decrypted_chat_data = decrypt_shared_key(encrypted_chat_data,
-                                               sid)  # Decrypt chat data
+                                               shared_key)  # Decrypt chat data
       chat = json.loads(decrypted_chat_data)
       chat['_id'] = str(chat['_id'])
       chat['participants'] = [
           str(participant) for participant in chat['participants']
       ]
-      chat['createdAt'] = chat['createdAt'].isoformat(
-      ) if 'createdAt' in chat else 'Unknown'
+      chat['createdAt'] = str(chat['createdAt']) if 'createdAt' in chat else 'Unknown'
       chat['messages'] = [{
           **message, 'messageId':
           str(message['messageId']),
           'senderId':
           str(message['senderId']),
           'sentAt':
-          message['sentAt'].isoformat() if 'sentAt' in message else 'Unknown',
+          str(message['sentAt']) if 'sentAt' in message else 'Unknown',
           'status':
           message.get('status', 'Unknown')
       } for message in chat['messages']]
@@ -301,9 +298,9 @@ def get_chat(sid, chat_id):
     else:
       print("Chat not found.")
       sio.emit('chat_not_found', {'message': 'Chat not found'}, room=sid)
-  except Exception as e:
-    print(f"Error in get_chat: {str(e)}")
-    sio.emit('error', {'error': str(e)}, room=sid)
+  # except Exception as e:
+  #   print(f"Error in get_chat: {str(e)}")
+  #   sio.emit('error', {'error': str(e)}, room=sid)
 
 
 # @sio.event
